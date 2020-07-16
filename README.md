@@ -1,6 +1,14 @@
 # r7insight_lambdaS3
 Follow the instructions below to send logs stored on AWS S3 to Rapid 7.
 
+## IntelliJ Setup
+1. Open the project in IntelliJ
+
+2. Go to project settings and configure python sdk. You can create a new python sdk by creating a virtual environment option
+which creates a project level sdk rather than a global one. You end up with a venv folder in the project
+
+3. Language level, select sdk default
+
 ###### Example use cases:
 * Forwarding AWS ELB and CloudFront logs
   * (make sure to set ELB/CloudFront to write logs every 5 minutes)
@@ -34,6 +42,7 @@ Follow the instructions below to send logs stored on AWS S3 to Rapid 7.
 6. Upload function code:
    * Create a .ZIP file, containing ```r7insight_lambdas3.py``` and the folder ```certifi```
      * Make sure the files and ```certifi``` folder are in the **root** of the ZIP archive
+     * From the root folder run `zip -r deploy.zip . -x '*.git*' '*.idea*' 'venv*' 'doc*' '.gitignore' 'README.md' 'LICENSE'`
    * Go to "Function code" section of lambda setup
    * Choose "Upload a .zip file" in "Code entry type" dropdown and upload the archive created in previous step
    * Choose your python runtime version from "Runtime" dropdown

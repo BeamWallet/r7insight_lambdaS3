@@ -5,7 +5,7 @@ import boto3
 import socket
 import ssl
 import re
-import urllib
+import urllib.request, urllib.parse, urllib.error
 import csv
 import zlib
 import json
@@ -36,12 +36,12 @@ def lambda_handler(event, context):
     else:
         # Get the object from the event and show its content type
         bucket = event['Records'][0]['s3']['bucket']['name']
-        key = urllib.unquote_plus(event['Records'][0]['s3']['object']['key']).decode('utf8')
+        key = urllib.parse.unquote_plus(event['Records'][0]['s3']['object']['key'])
         try:
             response = s3.get_object(Bucket=bucket, Key=key)
             logger.info('Fetched file {} from S3 bucket {}'.format(key, bucket))
             body = response['Body']
-            data = body.read()
+            data = body.read().decode('utf-8')
             # If the name has a .gz extension, then decompress the data
             if key[-3:] == '.gz':
                 with tempfile.TemporaryFile() as temporary_file:
@@ -49,7 +49,7 @@ def lambda_handler(event, context):
                     temporary_file.seek(0)
 
                     with gzip.GzipFile(fileobj=temporary_file, mode="r") as gz:
-                        data = gz.read()
+                        data = gz.read().decode('utf-8')
 
             lines = data.split("\n")
             logger.info('Total number of lines: {}'.format(len(list(lines))))
@@ -83,7 +83,7 @@ def lambda_handler(event, context):
                         'ssl_protocol': line[14]
                     }
                     msg = json.dumps(parsed)
-                    sock.sendall('{} {}\n'.format(TOKEN, msg))
+                    sock.sendall('{} {}\n'.format(TOKEN, msg).encode())
                 logger.info('Finished sending file={} to R7'.format(key))
             elif validate_alb_log(str(key)) is True:
                 logger.info('File={} is AWS ALB log format. Parsing and sending to R7'.format(key))
@@ -121,7 +121,7 @@ def lambda_handler(event, context):
                             'trace_id': line[17]
                         }
                         msg = json.dumps(parsed)
-                        sock.sendall('{} {}\n'.format(TOKEN, msg))
+                        sock.sendall('{} {}\n'.format(TOKEN, msg).encode())
                         good_run_count += 1
                     except IndexError:
                         bad_run_count += 1
@@ -153,18 +153,18 @@ def lambda_handler(event, context):
                           " x_forwarded_for=\"{19}\" ssl_protocol=\"{20}\"" \
                           " ssl_cipher=\"{21}\" x_edge_response_result_type=\"{22}\"\n" \
                         .format(*line)
-                    sock.sendall('{} {}\n'.format(TOKEN, msg))
+                    sock.sendall('{} {}\n'.format(TOKEN, msg).encode())
                 logger.info('Finished sending file={} to R7'.format(key))
             elif validate_ct_log(str(key)) is True:
                 logger.info('File={} is AWS CloudTrail log format. Parsing and sending to R7'.format(key))
                 cloud_trail = json.loads(data)
                 for event in cloud_trail['Records']:
-                    sock.sendall('{} {}\n'.format(TOKEN, json.dumps(event)))
+                    sock.sendall('{} {}\n'.format(TOKEN, json.dumps(event)).encode())
                 logger.info('Finished sending file={} to R7'.format(key))
             else:
                 logger.info('File={} is unrecognized log format. Sending raw lines to R7'.format(key))
                 for line in lines:
-                    sock.sendall('{} {}\n'.format(TOKEN, line))
+                    sock.sendall('{} {}\n'.format(TOKEN, line).encode())
                 logger.info('Finished sending file={} to R7'.format(key))
         except Exception as e:
             logger.error('Exception: {}'.format(e))
@@ -195,7 +195,7 @@ def create_socket():
         logger.info('Connecting to {}:{}'.format(ENDPOINT, PORT))
         s.connect((ENDPOINT, PORT))
         return s
-    except socket.error, exc:
+    except socket.error as exc:
         logger.error('Exception socket.error : {}'.format(exc))
         raise SystemExit
 
