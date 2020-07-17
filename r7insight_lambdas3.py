@@ -41,7 +41,7 @@ def lambda_handler(event, context):
             response = s3.get_object(Bucket=bucket, Key=key)
             logger.info('Fetched file {} from S3 bucket {}'.format(key, bucket))
             body = response['Body']
-            data = body.read().decode('utf-8')
+            data = body.read()
             # If the name has a .gz extension, then decompress the data
             if key[-3:] == '.gz':
                 with tempfile.TemporaryFile() as temporary_file:
@@ -49,9 +49,10 @@ def lambda_handler(event, context):
                     temporary_file.seek(0)
 
                     with gzip.GzipFile(fileobj=temporary_file, mode="r") as gz:
-                        data = gz.read().decode('utf-8')
+                        data = gz.read()
 
-            lines = data.split("\n")
+            decoded_data = data.decode('utf-8')
+            lines = decoded_data.split("\n")
             logger.info('Total number of lines: {}'.format(len(list(lines))))
 
             if validate_elb_log(str(key)) is True:
@@ -59,7 +60,7 @@ def lambda_handler(event, context):
                 # response_processing_time elb_status_code backend_status_code received_bytes sent_bytes
                 # "request" "user_agent" ssl_cipher ssl_protocol
                 logger.info('File={} is AWS ELB log format. Parsing and sending to R7'.format(key))
-                rows = csv.reader(data.splitlines(), delimiter=' ', quotechar='"')
+                rows = csv.reader(decoded_data.splitlines(), delimiter=' ', quotechar='"')
                 for line in rows:
                     request = line[11].split(' ')
                     idx = request[1].find('/', 9)
@@ -87,7 +88,7 @@ def lambda_handler(event, context):
                 logger.info('Finished sending file={} to R7'.format(key))
             elif validate_alb_log(str(key)) is True:
                 logger.info('File={} is AWS ALB log format. Parsing and sending to R7'.format(key))
-                rows = csv.reader(data.splitlines(), delimiter=' ', quotechar='"')
+                rows = csv.reader(decoded_data.splitlines(), delimiter=' ', quotechar='"')
                 total_run_count = 0
                 good_run_count = 0
                 bad_run_count = 0
@@ -138,7 +139,7 @@ def lambda_handler(event, context):
                 # cs-protocol cs-bytes time-taken x-forwarded-for ssl-protocol
                 # ssl-cipher x-edge-response-result-type
                 logger.info('File={} is AWS CloudFront log format. Parsing and sending to R7'.format(key))
-                rows = csv.reader(data.splitlines(), delimiter='\t', quotechar='"')
+                rows = csv.reader(decoded_data.splitlines(), delimiter='\t', quotechar='"')
                 for line in rows:
                     # Skip headers and lines with insufficient values
                     if len(line) < 23:
